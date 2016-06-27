@@ -946,6 +946,7 @@ static int gdb_handle_packet(GDBState *s, const char *line_buf)
     uint8_t mem_buf[MAX_PACKET_LENGTH];
     uint8_t *registers;
     target_ulong addr, len;
+    bool set_cpu = false;
 
 #ifdef DEBUG_GDB
     printf("command='%s'\n", line_buf);
@@ -1151,11 +1152,20 @@ static int gdb_handle_packet(GDBState *s, const char *line_buf)
         if (*p == ',')
             p++;
         len = strtoull(p, NULL, 16);
+        if (!current_cpu) {
+            current_cpu = s->c_cpu;
+            set_cpu = true;
+        }
+
         if (target_memory_rw_debug(s->g_cpu, addr, mem_buf, len, false) != 0) {
             put_packet (s, "E14");
         } else {
             memtohex(buf, mem_buf, len);
             put_packet(s, buf);
+        }
+
+        if (set_cpu) {
+            current_cpu = NULL;
         }
         break;
     case 'M':
@@ -1166,11 +1176,20 @@ static int gdb_handle_packet(GDBState *s, const char *line_buf)
         if (*p == ':')
             p++;
         hextomem(mem_buf, p, len);
+        if (!current_cpu) {
+            current_cpu = s->c_cpu;
+            set_cpu = true;
+        }
+
         if (target_memory_rw_debug(s->g_cpu, addr, mem_buf, len,
                                    true) != 0) {
             put_packet(s, "E14");
         } else {
             put_packet(s, "OK");
+        }
+
+        if (set_cpu) {
+            current_cpu = NULL;
         }
         break;
     case 'p':
